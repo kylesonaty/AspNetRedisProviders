@@ -37,14 +37,17 @@
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Web" />
     <Reference Include="System.Web.ApplicationServices" />
+    <Reference Include="System.Web.Extensions" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RedisMembershipProvider.cs" />
     <Compile Include="RedisRoleProvider.cs" />
     <Compile Include="RedisSessionStateStoreProvider.cs" />
+    <Compile Include="RedisWebEventProvider.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

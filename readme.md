@@ -69,6 +69,30 @@ The membership provider has an optional attribute for specifing how to store the
 
 For passwordFormat acceptable values are "Hashed, Encrypted, or Clear." You will need to generate your own machine key for hashed and encrypted password. See http://technet.microsoft.com/en-us/library/cc772287(v=ws.10).aspx for more information. For more information on the ASP.NET Membership Provider and how to configure it see http://msdn.microsoft.com/en-us/library/tw292whz(v=vs.100).aspx
 
+### Redis Web Event Provider `RedisProviders.RedisWebEventProvider`
+
+The `RedisWebEventProvider` class is an implementation of `System.Web.Management.WebEventProvider` that stores the data in redis.
+
+To use it build the solution. Reference the binaries. Then add this to the configuration file inside the `system.web` element.
+
+```xml
+<healthMonitoring enabled="true">
+	<providers>
+		<add name="RedisWebEventProvider" type="RedisProviders.RedisWebEventProvider" />
+	</providers>
+	<rules>
+		<!-- sample rule -->
+		<add name="All Web Events"
+			eventName="All Events"
+			provider="RedisWebEventProvider"
+			minInterval="00:00:01" minInstances="1"
+			maxLimit="Infinite" />
+	</rules>
+</healthMonitoring>
+```
+
+See "Option Config Values" for a list of additional options when configuring the provider. For more information on managing ASP.NET Health Monitor see http://msdn.microsoft.com/en-us/library/ms178701(v=vs.85).aspx
+
 ### Optional Config Values 
 
 There are also some optional attributes for the config for each of the providers and their defaults:
