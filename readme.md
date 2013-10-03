@@ -105,9 +105,7 @@ There are also some optional attributes for the config for each of the providers
 
 
 ### TODO:
-* Implement FindUsersByEmail in RedisMembershipProvider
-* Implement FindUsersByName in RedisMembershipProvider
-* Implement other ASP.NET Providers (Site Map, Profile, Web Events, Web Parts Personalization)
+* Implement other ASP.NET Providers (Site Map, Profile, Web Parts Personalization)
 
 
 
