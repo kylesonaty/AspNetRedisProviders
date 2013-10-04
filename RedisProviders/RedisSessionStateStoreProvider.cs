@@ -45,22 +45,21 @@ namespace RedisProviders
 
             base.Initialize(name, config);
 
-            _host = string.IsNullOrEmpty(config["host"]) ? "localhost" : config["host"];
-            _port = string.IsNullOrEmpty(config["port"]) ? 6379 : int.Parse(config["port"]);
-            _redisDb = string.IsNullOrEmpty(config["db"]) ? 0 : int.Parse(config["db"]);
-            _password = string.IsNullOrEmpty(config["password"]) ? null : config["password"];
-            ApplicationName = string.IsNullOrEmpty(config["applicationName"]) ? HostingEnvironment.ApplicationVirtualPath : config["applicationName"];
+            _host = GetConfigValue(config["host"], Defaults.Host);
+            _port = Convert.ToInt32(GetConfigValue(config["port"], Defaults.Port));
+            _password = GetConfigValue(config["password"], null);
+            _redisDb = Convert.ToInt32(GetConfigValue(config["db"], Defaults.Db));
+            _writeExceptionsToEventLog = Convert.ToBoolean(GetConfigValue(config["writeExceptionsToEventLog"], "true"));
 
+            ApplicationName = string.IsNullOrEmpty(config["applicationName"]) ? HostingEnvironment.ApplicationVirtualPath : config["applicationName"];
+            
             var cfg = WebConfigurationManager.OpenWebConfiguration(ApplicationName);
             _sessionStateConfig = (SessionStateSection)cfg.GetSection("system.web/sessionState");
+        }
 
-            if (config["writeExceptionsToEventLog"] != null)
-            {
-                if (config["writeExceptionsToEventLog"].ToUpper() == "TRUE")
-                {
-                    _writeExceptionsToEventLog = true;
-                }
-            }
+        private static string GetConfigValue(string configValue, string defaultValue)
+        {
+            return string.IsNullOrEmpty(configValue) ? defaultValue : configValue;
         }
 
         public override void Dispose() { }

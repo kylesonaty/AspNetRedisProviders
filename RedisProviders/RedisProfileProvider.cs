@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Web.Hosting;
 using System.Web.Profile;
 using BookSleeve;
 
@@ -26,6 +27,8 @@ namespace RedisProviders
         private string _password;
         private bool _writeExceptionsToEventLog;
 
+        public override string ApplicationName { get { return _applicationName; } set { _applicationName = value; } }
+
         public override void Initialize(string name, System.Collections.Specialized.NameValueCollection config)
         {
             if (config == null)
@@ -40,21 +43,17 @@ namespace RedisProviders
             // Initialize the abstract base class
             base.Initialize(name, config);
 
-            _host = string.IsNullOrEmpty(config["host"]) ? Constants.RedisDefaultHost : config["host"];
-            _port = string.IsNullOrEmpty(config["port"]) ? Constants.RedisDefaultPort : int.Parse(config["port"]);
-            _password = string.IsNullOrEmpty(config["password"]) ? null : config["password"];
-            _redisDb = string.IsNullOrEmpty(config["db"]) ? Constants.RedisDefaultDB : int.Parse(config["db"]);
-
-            if (config["writeExceptionsToEventLog"] != null && config["writeExceptionsToEventLog"].ToUpper() == "TRUE")
-            {
-                _writeExceptionsToEventLog = true;
-            }
+            _host = GetConfigValue(config["host"], Defaults.Host);
+            _port = Convert.ToInt32(GetConfigValue(config["port"], Defaults.Port));
+            _password = GetConfigValue(config["password"], null);
+            _redisDb = Convert.ToInt32(GetConfigValue(config["db"], Defaults.Db));
+            _applicationName = GetConfigValue(config["applicationName"], HostingEnvironment.ApplicationVirtualPath);
+            _writeExceptionsToEventLog = Convert.ToBoolean(GetConfigValue(config["writeExceptionsToEventLog"], "true"));
         }
 
-        public override string ApplicationName
+        private static string GetConfigValue(string configValue, string defaultValue)
         {
-            get { return _applicationName; }
-            set { _applicationName = value; }
+            return string.IsNullOrEmpty(configValue) ? defaultValue : configValue;
         }
 
         public override SettingsPropertyValueCollection GetPropertyValues(SettingsContext context, SettingsPropertyCollection collection)
@@ -110,7 +109,7 @@ namespace RedisProviders
 
         private static void WriteToEventLog(Exception ex, string action)
         {
-            var log = new EventLog { Source = "RedisMembershipProvider", Log = "Application" };
+            var log = new EventLog { Source = "RedisProfileProvider", Log = "Application" };
             var message = "Action: " + action + "\n\n";
             message += "Exception: " + ex;
             log.WriteEntry(message);

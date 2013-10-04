@@ -68,10 +68,10 @@ namespace RedisProviders
 
             base.Initialize(name, config);
 
-            _host = GetConfigValue(config["host"], "localhost");
-            _port = Convert.ToInt32(GetConfigValue(config["port"], "6379"));
-            _redisDb = Convert.ToInt32(GetConfigValue(config["db"], "0"));
-            _password = GetConfigValue(config["password"], null);          
+            _host = GetConfigValue(config["host"], Defaults.Host);
+            _port = Convert.ToInt32(GetConfigValue(config["port"], Defaults.Port));
+            _password = GetConfigValue(config["password"], null);
+            _redisDb = Convert.ToInt32(GetConfigValue(config["db"], Defaults.Db)); 
             _applicationName = GetConfigValue(config["applicationName"], HostingEnvironment.ApplicationVirtualPath);
             _maxInvalidPasswordAttempts = Convert.ToInt32(GetConfigValue(config["maxInvalidPasswordAttempts"], "5"));
             _passwordAttemptWindow = Convert.ToInt32(GetConfigValue(config["passwordAttemptWindow"], "10"));
