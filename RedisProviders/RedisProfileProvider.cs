@@ -8,6 +8,8 @@ using System.Text;
 using System.Web.Hosting;
 using System.Web.Profile;
 using BookSleeve;
+using System.Configuration.Provider;
+using System.Threading.Tasks;
 
 namespace RedisProviders
 {
@@ -83,7 +85,56 @@ namespace RedisProviders
 
         public override ProfileInfoCollection GetAllProfiles(ProfileAuthenticationOption authenticationOption, int pageIndex, int pageSize, out int totalRecords)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var connection = GetConnection();
+                var start = pageIndex * pageSize;
+                var end = pageIndex * pageSize + pageSize;
+                string key = string.Empty;
+                switch (authenticationOption)
+                {
+                    case ProfileAuthenticationOption.All:
+                        key = GetProfilesKey();
+                        break;
+                    case ProfileAuthenticationOption.Anonymous:
+                        key = GetProfilesKeyAnonymous();
+                        break;
+                    case ProfileAuthenticationOption.Authenticated:
+                        key = GetProfilesKeyAuthenticated();
+                        break;
+                    default:
+                        key = GetProfilesKey();
+                        break;
+                }
+                var profilesTask = connection.Lists.Range(_redisDb, key, start, end);
+                var profileCountTask = connection.Strings.GetString(_redisDb, GetProfilesCountKey());
+                var collection = new ProfileInfoCollection();
+                var profileNames = connection.Wait(profilesTask);
+
+                Parallel.ForEach(profileNames, result =>
+                {
+                    var profileName = new string(Encoding.Unicode.GetChars(result));
+                    var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(profileName));
+                    var profileDict = connection.Wait(profileTask);
+                    if (profileDict.Count > 0)
+                    {
+                        var user = CreateProfileInfoFromDictionary(profileDict);
+                        collection.Add(user);
+                    }
+                });
+                var profileCount = connection.Wait(profileCountTask);
+                int.TryParse(profileCount, out totalRecords);
+                return collection;
+            }
+            catch (Exception ex)
+            {
+                if (_writeExceptionsToEventLog)
+                {
+                    WriteToEventLog(ex, "GetAllProfiles");
+                    throw new ProviderException(EXCEPTION_MESSAGE);
+                }
+                throw;
+            }
         }
 
         public override ProfileInfoCollection GetAllInactiveProfiles(ProfileAuthenticationOption authenticationOption, DateTime userInactiveSinceDate, int pageIndex, int pageSize, out int totalRecords)
@@ -106,6 +157,41 @@ namespace RedisProviders
             throw new NotImplementedException();
         }
 
+        private ProfileInfo CreateProfileInfoFromDictionary(Dictionary<string, byte[]> dict)
+        {
+            var profileInfo = new ProfileInfo(new string(Encoding.Unicode.GetChars(dict["Username"])),
+                BitConverter.ToBoolean(dict["IsAnonymous"], 0),
+                DateTime.FromBinary(BitConverter.ToInt64(dict["LastActivityDate"], 0)),
+                DateTime.FromBinary(BitConverter.ToInt64(dict["LastUpdatedDate"], 0)),
+                0);
+
+            return profileInfo;
+        }
+
+        private string GetProfileKey(string profileName)
+        {
+            return string.Format("application:{0}:profile:{1}", ApplicationName, profileName.ToLower());
+        }
+
+        private string GetProfilesKey()
+        {
+            return string.Format("application:{0}:profiles", ApplicationName);
+        }
+
+        private string GetProfilesKeyAuthenticated()
+        {
+            return string.Format("application:{0}:profiles:authenticated", ApplicationName);
+        }
+
+        private string GetProfilesKeyAnonymous()
+        {
+            return string.Format("application:{0}:profiles:anonymous", ApplicationName);
+        }
+
+        private string GetProfilesCountKey()
+        {
+            return string.Format("application:{0}:profilecount", ApplicationName);
+        }
 
         private static void WriteToEventLog(Exception ex, string action)
         {
