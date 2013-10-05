@@ -1,15 +1,15 @@
-﻿using System;
+﻿using BookSleeve;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Configuration.Provider;
 using System.Diagnostics;
-using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Tasks;
 using System.Web.Hosting;
 using System.Web.Profile;
-using BookSleeve;
-using System.Configuration.Provider;
-using System.Threading.Tasks;
 
 namespace RedisProviders
 {
@@ -60,12 +60,50 @@ namespace RedisProviders
 
         public override SettingsPropertyValueCollection GetPropertyValues(SettingsContext context, SettingsPropertyCollection collection)
         {
-            throw new NotImplementedException();
+            string username = (string)context["UserName"];
+            bool isAuthenticated = (bool)context["IsAuthenticated"];
+
+            var connection = GetConnection();
+            var settingsTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(username, isAuthenticated));
+            var settingsDict = connection.Wait(settingsTask);
+
+            SettingsPropertyValueCollection settingsPropertyValueCollection = new SettingsPropertyValueCollection();
+
+            foreach (SettingsProperty prop in collection)
+            {
+                SettingsPropertyValue settingsPropertyValue = new SettingsPropertyValue(prop);
+                if (settingsDict.ContainsKey(prop.Name))
+                {
+                    var json = new string(Encoding.Unicode.GetChars(settingsDict[prop.Name]));
+                    var deserialized = JsonConvert.DeserializeObject(json, prop.PropertyType);
+                    settingsPropertyValue.PropertyValue = deserialized;
+                }
+                settingsPropertyValueCollection.Add(settingsPropertyValue);
+            }
+
+            UpdateActivityDate(username, isAuthenticated, true);
+
+            return settingsPropertyValueCollection;
         }
 
         public override void SetPropertyValues(SettingsContext context, SettingsPropertyValueCollection collection)
         {
-            throw new NotImplementedException();
+            string username = (string)context["UserName"];
+            bool isAuthenticated = (bool)context["IsAuthenticated"];
+
+            var dict = new Dictionary<string, byte[]>();
+
+            foreach (SettingsPropertyValue prop in collection)
+            {
+                var json = JsonConvert.SerializeObject(prop.PropertyValue);
+                var bytes = Encoding.Unicode.GetBytes(json);
+                dict.Add(prop.Name, bytes);
+            }
+
+            var connection = GetConnection();
+            connection.Hashes.Set(_redisDb, GetProfileKey(username, isAuthenticated), dict);
+
+            UpdateActivityDate(username, isAuthenticated, false);
         }
 
         public override int DeleteProfiles(ProfileInfoCollection profiles)
@@ -113,8 +151,9 @@ namespace RedisProviders
 
                 Parallel.ForEach(profileNames, result =>
                 {
-                    var profileName = new string(Encoding.Unicode.GetChars(result));
-                    var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(profileName));
+                    var profileResult = new string(Encoding.Unicode.GetChars(result));
+                    var parts = profileResult.Split(':');
+                    var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(parts[0], Convert.ToBoolean(parts[1])));
                     var profileDict = connection.Wait(profileTask);
                     if (profileDict.Count > 0)
                     {
@@ -157,6 +196,16 @@ namespace RedisProviders
             throw new NotImplementedException();
         }
 
+        private void UpdateActivityDate(string username, bool isAuthenticated, bool activityOnly)
+        {
+            var connection = GetConnection();
+            var dict = new Dictionary<string, byte[]>();
+            var dateBytes = BitConverter.GetBytes(DateTime.UtcNow.ToBinary());
+            dict.Add("LastActivityDate", dateBytes);
+            if (!activityOnly) dict.Add("LastUpdatedDate", dateBytes);
+            connection.Hashes.Set(_redisDb, GetProfileKey(username, isAuthenticated), dict);
+        }
+
         private ProfileInfo CreateProfileInfoFromDictionary(Dictionary<string, byte[]> dict)
         {
             var profileInfo = new ProfileInfo(new string(Encoding.Unicode.GetChars(dict["Username"])),
@@ -168,9 +217,9 @@ namespace RedisProviders
             return profileInfo;
         }
 
-        private string GetProfileKey(string profileName)
+        private string GetProfileKey(string profileName, bool isAuthenticated)
         {
-            return string.Format("application:{0}:profile:{1}", ApplicationName, profileName.ToLower());
+            return string.Format("application:{0}:profile:{1}:{2}", ApplicationName, profileName.ToLower(), isAuthenticated ? "authenticated" : "anonymous");
         }
 
         private string GetProfilesKey()
