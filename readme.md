@@ -6,6 +6,7 @@ The Redis Providers library is a collection of ASP.NET providers that uses redis
 * Session State Store Provider
 * Role Provider
 * Membership Provider
+* Web Event Provider
 
 ### Redis Session State Store Provider `RedisProviders.RedisSessionStateStoreProvider`
 
