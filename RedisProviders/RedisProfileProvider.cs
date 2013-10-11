@@ -314,7 +314,6 @@ namespace RedisProviders
             if (!exists)
             {
                 connection.Sets.Add(_redisDb, GetProfilesKey(), username);
-                //connection.Strings.Increment(_redisDb, GetProfilesCountKey());
                 connection.SortedSets.Add(_redisDb, GetProfilesKey(), username, (double)date);
                 if (isAuthenticated)
                     connection.SortedSets.Add(_redisDb, GetProfilesKeyAuthenticated(), username, (double)date);
