@@ -1,4 +1,5 @@
-﻿using System;
+﻿using RedisProviders.TestSite.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -22,6 +23,20 @@ namespace RedisProviders.TestSite.Controllers
         {
             ViewBag.TestString = Profile["TestString"];
             Profile["TestString"] = LONG_STRING;
+
+            ViewBag.CurrentDateTime = (DateTime)Profile["DateTime"];
+            Profile["DateTime"] = DateTime.UtcNow;
+
+            ViewBag.TestObject = (TestObject)Profile["TestObject"];
+            
+
+            var obj = (TestObject)Profile["TestObject"];
+            ViewBag.TestObjectId = obj.Id;
+            ViewBag.TestObjectName = obj.Name;
+            ViewBag.TestObjectModifiedDateTime = obj.ModifiedDateTime;
+            ViewBag.TestObjectCount = obj.Count;
+
+            Profile["TestObject"] = new TestObject { Id = Guid.NewGuid(), ModifiedDateTime = DateTime.UtcNow, Name = "Testing", Count = DateTime.UtcNow.Second };
 
             return View();
         }
