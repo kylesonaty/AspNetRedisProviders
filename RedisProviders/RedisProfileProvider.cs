@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Web.Hosting;
 using System.Web.Profile;
 using System.Linq;
+using System.Threading;
 
 namespace RedisProviders
 {
@@ -109,21 +110,25 @@ namespace RedisProviders
 
         public override int DeleteProfiles(ProfileInfoCollection profiles)
         {
+            var count = 0;
             Parallel.ForEach(profiles.Cast<ProfileInfo>(), profile =>
             {
-                DeleteProfile(profile.UserName, profile.IsAnonymous);
+                if (DeleteProfile(profile.UserName, profile.IsAnonymous))
+                    Interlocked.Increment(ref count);
+
             });
-            return profiles.Count;
+            return count;
         }
 
         public override int DeleteProfiles(string[] usernames)
         {
+            var count = 0;
             Parallel.ForEach(usernames, username =>
                 {
-                    DeleteProfile(username, true);
-                    DeleteProfile(username, false);
+                    if (DeleteProfile(username, true) || DeleteProfile(username, false))
+                        Interlocked.Increment(ref count);
                 });
-            return usernames.Length;
+            return count;
         }
 
         public override int DeleteInactiveProfiles(ProfileAuthenticationOption authenticationOption, DateTime userInactiveSinceDate)
@@ -158,7 +163,8 @@ namespace RedisProviders
                 var parts = profileResult.Split(':');
                 var username = parts[0];
                 var isAuthenticated = Convert.ToBoolean(parts[1]);
-                DeleteProfile(username, isAuthenticated);
+                if (DeleteProfile(username, isAuthenticated))
+                    Interlocked.Increment(ref count);
             });
 
             return count;
@@ -243,8 +249,8 @@ namespace RedisProviders
 
             var allUsersTask = connection.SortedSets.Range(_redisDb, key, min, max);
             var allUsers = connection.Wait(allUsersTask);
-            var start = pageIndex * pageSize;
             totalRecords = allUsers.Length;
+            var start = pageIndex * pageSize;
             var users = allUsers.Skip(start).Take(pageSize);
 
             var collection = new ProfileInfoCollection();
@@ -322,17 +328,18 @@ namespace RedisProviders
             }
         }
 
-        private void DeleteProfile(string username, bool isAuthenticated)
+        private bool DeleteProfile(string username, bool isAuthenticated)
         {
             var connection = GetConnection();
-            connection.Keys.Remove(_redisDb, GetProfileKey(username, isAuthenticated));
+            var removedTask = connection.Keys.Remove(_redisDb, GetProfileKey(username, isAuthenticated));
             connection.SortedSets.Remove(_redisDb, GetProfilesKey(), username);
 
             if (isAuthenticated)
                 connection.SortedSets.Remove(_redisDb, GetProfilesKeyAuthenticated(), username);
             else
                 connection.SortedSets.Remove(_redisDb, GetProfilesKeyAnonymous(), username);
-
+            var wasRemoved = connection.Wait(removedTask);
+            return wasRemoved;
         }
 
         private ProfileInfo CreateProfileInfoFromDictionary(Dictionary<string, byte[]> dict)
