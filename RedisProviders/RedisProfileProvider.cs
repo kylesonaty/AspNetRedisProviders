@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web.Hosting;
 using System.Web.Profile;
+using System.Linq;
 
 namespace RedisProviders
 {
@@ -81,7 +82,7 @@ namespace RedisProviders
                 settingsPropertyValueCollection.Add(settingsPropertyValue);
             }
 
-            UpdateActivityDate(username, isAuthenticated, true);
+            UpdateActivity(username, isAuthenticated, true);
 
             return settingsPropertyValueCollection;
         }
@@ -103,22 +104,64 @@ namespace RedisProviders
             var connection = GetConnection();
             connection.Hashes.Set(_redisDb, GetProfileKey(username, isAuthenticated), dict);
 
-            UpdateActivityDate(username, isAuthenticated, false);
+            UpdateActivity(username, isAuthenticated, false);
         }
 
         public override int DeleteProfiles(ProfileInfoCollection profiles)
         {
-            throw new NotImplementedException();
+            Parallel.ForEach(profiles.Cast<ProfileInfo>(), profile =>
+            {
+                DeleteProfile(profile.UserName, profile.IsAnonymous);
+            });
+            return profiles.Count;
         }
 
         public override int DeleteProfiles(string[] usernames)
         {
-            throw new NotImplementedException();
+            Parallel.ForEach(usernames, username =>
+                {
+                    DeleteProfile(username, true);
+                    DeleteProfile(username, false);
+                });
+            return usernames.Length;
         }
 
         public override int DeleteInactiveProfiles(ProfileAuthenticationOption authenticationOption, DateTime userInactiveSinceDate)
         {
-            throw new NotImplementedException();
+            var connection = GetConnection();
+            var min = (double)userInactiveSinceDate.ToBinary();
+            var max = double.MaxValue;
+            string key = string.Empty;
+            switch (authenticationOption)
+            {
+                case ProfileAuthenticationOption.All:
+                    key = GetProfilesKey();
+                    break;
+                case ProfileAuthenticationOption.Anonymous:
+                    key = GetProfilesKeyAnonymous();
+                    break;
+                case ProfileAuthenticationOption.Authenticated:
+                    key = GetProfilesKeyAuthenticated();
+                    break;
+                default:
+                    break;
+            }
+
+            var inactiveUsersTask = connection.SortedSets.Range(_redisDb, key, min, max);
+            var inactiveUsers = connection.Wait(inactiveUsersTask);
+            var collection = new ProfileInfoCollection();
+            var count = 0;
+
+            Parallel.ForEach(inactiveUsers, result =>
+            {
+                var profileResult = new string(Encoding.Unicode.GetChars(result.Key));
+                var parts = profileResult.Split(':');
+                var username = parts[0];
+                var isAuthenticated = Convert.ToBoolean(parts[1]);
+                DeleteProfile(username, isAuthenticated);
+            });
+
+            return count;
         }
 
         public override ProfileInfoCollection GetAllProfiles(ProfileAuthenticationOption authenticationOption, int pageIndex, int pageSize, out int totalRecords)
@@ -144,14 +187,15 @@ namespace RedisProviders
                         key = GetProfilesKey();
                         break;
                 }
-                var profilesTask = connection.Lists.Range(_redisDb, key, start, end);
-                var profileCountTask = connection.Strings.GetString(_redisDb, GetProfilesCountKey());
+
+                var profilesTask = connection.SortedSets.RangeString(_redisDb, key, start, end);
+                var profileCountTask = connection.SortedSets.GetLength(_redisDb, key);
                 var collection = new ProfileInfoCollection();
                 var profileNames = connection.Wait(profilesTask);
 
                 Parallel.ForEach(profileNames, result =>
                 {
-                    var profileResult = new string(Encoding.Unicode.GetChars(result));
+                    var profileResult = result.Key;
                     var parts = profileResult.Split(':');
                     var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(parts[0], Convert.ToBoolean(parts[1])));
                     var profileDict = connection.Wait(profileTask);
@@ -162,7 +206,7 @@ namespace RedisProviders
                     }
                 });
                 var profileCount = connection.Wait(profileCountTask);
-                int.TryParse(profileCount, out totalRecords);
+                totalRecords = (int)profileCount;
                 return collection;
             }
             catch (Exception ex)
@@ -178,7 +222,47 @@ namespace RedisProviders
 
         public override ProfileInfoCollection GetAllInactiveProfiles(ProfileAuthenticationOption authenticationOption, DateTime userInactiveSinceDate, int pageIndex, int pageSize, out int totalRecords)
         {
-            throw new NotImplementedException();
+            var connection = GetConnection();
+            string key = string.Empty;
+            var min = (double)userInactiveSinceDate.ToBinary();
+            var max = double.MaxValue;
+            switch (authenticationOption)
+            {
+                case ProfileAuthenticationOption.All:
+                    key = GetProfilesKey();
+                    break;
+                case ProfileAuthenticationOption.Anonymous:
+                    key = GetProfilesKeyAnonymous();
+                    break;
+                case ProfileAuthenticationOption.Authenticated:
+                    key = GetProfilesKeyAuthenticated();
+                    break;
+                default:
+                    break;
+            }
+
+            var allUsersTask = connection.SortedSets.Range(_redisDb, key, min, max);
+            var allUsers = connection.Wait(allUsersTask);
+            var start = pageIndex * pageSize;
+            totalRecords = allUsers.Length;
+            var users = allUsers.Skip(start).Take(pageSize);
+
+            var collection = new ProfileInfoCollection();
+
+            Parallel.ForEach(users, result =>
+            {
+                var profileResult = new string(Encoding.Unicode.GetChars(result.Key));
+                var parts = profileResult.Split(':');
+                var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(parts[0], Convert.ToBoolean(parts[1])));
+                var profileDict = connection.Wait(profileTask);
+                if (profileDict.Count > 0)
+                {
+                    var user = CreateProfileInfoFromDictionary(profileDict);
+                    collection.Add(user);
+                }
+            });
+
+            return collection;
         }
 
         public override ProfileInfoCollection FindProfilesByUserName(ProfileAuthenticationOption authenticationOption, string usernameToMatch, int pageIndex, int pageSize, out int totalRecords)
@@ -193,17 +277,63 @@ namespace RedisProviders
 
         public override int GetNumberOfInactiveProfiles(ProfileAuthenticationOption authenticationOption, DateTime userInactiveSinceDate)
         {
-            throw new NotImplementedException();
+            var connection = GetConnection();
+            string key = string.Empty;
+            var min = (double)userInactiveSinceDate.ToBinary();
+            var max = double.MaxValue;
+            switch (authenticationOption)
+            {
+                case ProfileAuthenticationOption.All:
+                    key = GetProfilesKey();
+                    break;
+                case ProfileAuthenticationOption.Anonymous:
+                    key = GetProfilesKeyAnonymous();
+                    break;
+                case ProfileAuthenticationOption.Authenticated:
+                    key = GetProfilesKeyAuthenticated();
+                    break;
+                default:
+                    break;
+            }
+            var countTask = connection.SortedSets.GetLength(_redisDb, key, min, max);
+            var count = connection.Wait(countTask);
+            return (int)count;
         }
 
-        private void UpdateActivityDate(string username, bool isAuthenticated, bool activityOnly)
+        private void UpdateActivity(string username, bool isAuthenticated, bool activityOnly)
         {
             var connection = GetConnection();
             var dict = new Dictionary<string, byte[]>();
-            var dateBytes = BitConverter.GetBytes(DateTime.UtcNow.ToBinary());
+            var date = DateTime.UtcNow.ToBinary();
+            var dateBytes = BitConverter.GetBytes(date);
             dict.Add("LastActivityDate", dateBytes);
             if (!activityOnly) dict.Add("LastUpdatedDate", dateBytes);
             connection.Hashes.Set(_redisDb, GetProfileKey(username, isAuthenticated), dict);
+            var existsTask = connection.Sets.Contains(_redisDb, GetProfilesKey(), username);
+            var exists = connection.Wait(existsTask);
+            if (!exists)
+            {
+                connection.Sets.Add(_redisDb, GetProfilesKey(), username);
+                //connection.Strings.Increment(_redisDb, GetProfilesCountKey());
+                connection.SortedSets.Add(_redisDb, GetProfilesKey(), username, (double)date);
+                if (isAuthenticated)
+                    connection.SortedSets.Add(_redisDb, GetProfilesKeyAuthenticated(), username, (double)date);
+                else
+                    connection.SortedSets.Add(_redisDb, GetProfilesKeyAnonymous(), username, (double)date);
+            }
+        }
+
+        private void DeleteProfile(string username, bool isAuthenticated)
+        {
+            var connection = GetConnection();
+            connection.Keys.Remove(_redisDb, GetProfileKey(username, isAuthenticated));
+            connection.SortedSets.Remove(_redisDb, GetProfilesKey(), username);
+
+            if (isAuthenticated)
+                connection.SortedSets.Remove(_redisDb, GetProfilesKeyAuthenticated(), username);
+            else
+                connection.SortedSets.Remove(_redisDb, GetProfilesKeyAnonymous(), username);
+
         }
 
         private ProfileInfo CreateProfileInfoFromDictionary(Dictionary<string, byte[]> dict)
@@ -235,11 +365,6 @@ namespace RedisProviders
         private string GetProfilesKeyAnonymous()
         {
             return string.Format("application:{0}:profiles:anonymous", ApplicationName);
-        }
-
-        private string GetProfilesCountKey()
-        {
-            return string.Format("application:{0}:profilecount", ApplicationName);
         }
 
         private static void WriteToEventLog(Exception ex, string action)
