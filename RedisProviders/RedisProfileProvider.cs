@@ -5,13 +5,13 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Configuration.Provider;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Hosting;
 using System.Web.Profile;
-using System.Linq;
-using System.Threading;
 
 namespace RedisProviders
 {
@@ -312,20 +312,17 @@ namespace RedisProviders
             var dict = new Dictionary<string, byte[]>();
             var date = DateTime.UtcNow.ToBinary();
             var dateBytes = BitConverter.GetBytes(date);
+
             dict.Add("LastActivityDate", dateBytes);
-            if (!activityOnly) dict.Add("LastUpdatedDate", dateBytes);
+            if (!activityOnly)
+                dict.Add("LastUpdatedDate", dateBytes);
+
             connection.Hashes.Set(_redisDb, GetProfileKey(username, isAuthenticated), dict);
-            var existsTask = connection.Sets.Contains(_redisDb, GetProfilesKey(), username);
-            var exists = connection.Wait(existsTask);
-            if (!exists)
-            {
-                connection.Sets.Add(_redisDb, GetProfilesKey(), username);
-                connection.SortedSets.Add(_redisDb, GetProfilesKey(), username, (double)date);
-                if (isAuthenticated)
-                    connection.SortedSets.Add(_redisDb, GetProfilesKeyAuthenticated(), username, (double)date);
-                else
-                    connection.SortedSets.Add(_redisDb, GetProfilesKeyAnonymous(), username, (double)date);
-            }
+            connection.SortedSets.Add(_redisDb, GetProfilesKey(), username, (double)date);
+            if (isAuthenticated)
+                connection.SortedSets.Add(_redisDb, GetProfilesKeyAuthenticated(), username, (double)date);
+            else
+                connection.SortedSets.Add(_redisDb, GetProfilesKeyAnonymous(), username, (double)date);
         }
 
         private bool DeleteProfile(string username, bool isAuthenticated)
