@@ -1,4 +1,5 @@
-﻿using RedisProviders.TestSite.Models;
+﻿using System.Web.Profile;
+using RedisProviders.TestSite.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,6 +39,17 @@ namespace RedisProviders.TestSite.Controllers
 
             Profile["TestObject"] = new TestObject { Id = Guid.NewGuid(), ModifiedDateTime = DateTime.UtcNow, Name = "Testing", Count = DateTime.UtcNow.Second };
 
+            return View();
+        }
+
+        public ActionResult Overview()
+        {
+            
+            ViewBag.All  = ProfileManager.GetAllProfiles(ProfileAuthenticationOption.All);
+            ViewBag.Anon = ProfileManager.GetAllProfiles(ProfileAuthenticationOption.Anonymous);
+            ViewBag.Auth = ProfileManager.GetAllProfiles(ProfileAuthenticationOption.Authenticated);
+
+            //ViewBag.Inactive = ProfileManager.GetAllInactiveProfiles(ProfileAuthenticationOption.All, DateTime.Now.Subtract(TimeSpan.FromMinutes(1)));
             return View();
         }
 

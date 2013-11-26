@@ -62,18 +62,18 @@ namespace RedisProviders
 
         public override SettingsPropertyValueCollection GetPropertyValues(SettingsContext context, SettingsPropertyCollection collection)
         {
-            string username = (string)context["UserName"];
-            bool isAuthenticated = (bool)context["IsAuthenticated"];
+            var username = (string)context["UserName"];
+            var isAuthenticated = (bool)context["IsAuthenticated"];
 
             var connection = GetConnection();
             var settingsTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(username, isAuthenticated));
             var settingsDict = connection.Wait(settingsTask);
 
-            SettingsPropertyValueCollection settingsPropertyValueCollection = new SettingsPropertyValueCollection();
+            var settingsPropertyValueCollection = new SettingsPropertyValueCollection();
 
             foreach (SettingsProperty prop in collection)
             {
-                SettingsPropertyValue settingsPropertyValue = new SettingsPropertyValue(prop);
+                var settingsPropertyValue = new SettingsPropertyValue(prop);
                 if (settingsDict.ContainsKey(prop.Name))
                 {
                     var json = new string(Encoding.Unicode.GetChars(settingsDict[prop.Name]));
@@ -90,8 +90,8 @@ namespace RedisProviders
 
         public override void SetPropertyValues(SettingsContext context, SettingsPropertyValueCollection collection)
         {
-            string username = (string)context["UserName"];
-            bool isAuthenticated = (bool)context["IsAuthenticated"];
+            var username = (string)context["UserName"];
+            var isAuthenticated = (bool)context["IsAuthenticated"];
 
             var dict = new Dictionary<string, byte[]>();
 
@@ -135,8 +135,8 @@ namespace RedisProviders
         {
             var connection = GetConnection();
             var min = (double)userInactiveSinceDate.ToBinary();
-            var max = double.MaxValue;
-            string key = string.Empty;
+            const double max = double.MaxValue;
+            var key = string.Empty;
             switch (authenticationOption)
             {
                 case ProfileAuthenticationOption.All:
@@ -148,13 +148,10 @@ namespace RedisProviders
                 case ProfileAuthenticationOption.Authenticated:
                     key = GetProfilesKeyAuthenticated();
                     break;
-                default:
-                    break;
             }
 
             var inactiveUsersTask = connection.SortedSets.Range(_redisDb, key, min, max);
             var inactiveUsers = connection.Wait(inactiveUsersTask);
-            var collection = new ProfileInfoCollection();
             var count = 0;
 
             Parallel.ForEach(inactiveUsers, result =>
@@ -177,7 +174,7 @@ namespace RedisProviders
                 var connection = GetConnection();
                 var start = pageIndex * pageSize;
                 var end = pageIndex * pageSize + pageSize;
-                string key = string.Empty;
+                string key;
                 switch (authenticationOption)
                 {
                     case ProfileAuthenticationOption.All:
@@ -203,8 +200,12 @@ namespace RedisProviders
                 {
                     var profileResult = result.Key;
                     var parts = profileResult.Split(':');
-                    var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(parts[0], Convert.ToBoolean(parts[1])));
+                    var isAuthenticated = Convert.ToBoolean(parts[1]);
+                    var profileName = parts[0];
+                    var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(profileName, isAuthenticated));
                     var profileDict = connection.Wait(profileTask);
+                    profileDict.Add("Username", Encoding.Unicode.GetBytes(profileName));
+                    profileDict.Add("IsAuthenticated", BitConverter.GetBytes(isAuthenticated));
                     if (profileDict.Count > 0)
                     {
                         var user = CreateProfileInfoFromDictionary(profileDict);
@@ -229,9 +230,9 @@ namespace RedisProviders
         public override ProfileInfoCollection GetAllInactiveProfiles(ProfileAuthenticationOption authenticationOption, DateTime userInactiveSinceDate, int pageIndex, int pageSize, out int totalRecords)
         {
             var connection = GetConnection();
-            string key = string.Empty;
+            var key = string.Empty;
             var min = (double)userInactiveSinceDate.ToBinary();
-            var max = double.MaxValue;
+            const double max = double.MaxValue;
             switch (authenticationOption)
             {
                 case ProfileAuthenticationOption.All:
@@ -242,8 +243,6 @@ namespace RedisProviders
                     break;
                 case ProfileAuthenticationOption.Authenticated:
                     key = GetProfilesKeyAuthenticated();
-                    break;
-                default:
                     break;
             }
 
@@ -284,9 +283,9 @@ namespace RedisProviders
         public override int GetNumberOfInactiveProfiles(ProfileAuthenticationOption authenticationOption, DateTime userInactiveSinceDate)
         {
             var connection = GetConnection();
-            string key = string.Empty;
+            var key = string.Empty;
             var min = (double)userInactiveSinceDate.ToBinary();
-            var max = double.MaxValue;
+            const double max = double.MaxValue;
             switch (authenticationOption)
             {
                 case ProfileAuthenticationOption.All:
@@ -297,8 +296,6 @@ namespace RedisProviders
                     break;
                 case ProfileAuthenticationOption.Authenticated:
                     key = GetProfilesKeyAuthenticated();
-                    break;
-                default:
                     break;
             }
             var countTask = connection.SortedSets.GetLength(_redisDb, key, min, max);
@@ -317,12 +314,11 @@ namespace RedisProviders
             if (!activityOnly)
                 dict.Add("LastUpdatedDate", dateBytes);
 
+            var userValue = string.Join(":", username, isAuthenticated);
             connection.Hashes.Set(_redisDb, GetProfileKey(username, isAuthenticated), dict);
-            connection.SortedSets.Add(_redisDb, GetProfilesKey(), username, (double)date);
-            if (isAuthenticated)
-                connection.SortedSets.Add(_redisDb, GetProfilesKeyAuthenticated(), username, (double)date);
-            else
-                connection.SortedSets.Add(_redisDb, GetProfilesKeyAnonymous(), username, (double)date);
+            connection.SortedSets.Add(_redisDb, GetProfilesKey(), userValue, date);
+            connection.SortedSets.Add(_redisDb,
+                isAuthenticated ? GetProfilesKeyAuthenticated() : GetProfilesKeyAnonymous(), userValue, date);
         }
 
         private bool DeleteProfile(string username, bool isAuthenticated)
@@ -331,18 +327,16 @@ namespace RedisProviders
             var removedTask = connection.Keys.Remove(_redisDb, GetProfileKey(username, isAuthenticated));
             connection.SortedSets.Remove(_redisDb, GetProfilesKey(), username);
 
-            if (isAuthenticated)
-                connection.SortedSets.Remove(_redisDb, GetProfilesKeyAuthenticated(), username);
-            else
-                connection.SortedSets.Remove(_redisDb, GetProfilesKeyAnonymous(), username);
+            connection.SortedSets.Remove(_redisDb,
+                isAuthenticated ? GetProfilesKeyAuthenticated() : GetProfilesKeyAnonymous(), username);
             var wasRemoved = connection.Wait(removedTask);
             return wasRemoved;
         }
 
-        private ProfileInfo CreateProfileInfoFromDictionary(Dictionary<string, byte[]> dict)
+        private static ProfileInfo CreateProfileInfoFromDictionary(IDictionary<string, byte[]> dict)
         {
             var profileInfo = new ProfileInfo(new string(Encoding.Unicode.GetChars(dict["Username"])),
-                BitConverter.ToBoolean(dict["IsAnonymous"], 0),
+                !BitConverter.ToBoolean(dict["IsAuthenticated"], 0),
                 DateTime.FromBinary(BitConverter.ToInt64(dict["LastActivityDate"], 0)),
                 DateTime.FromBinary(BitConverter.ToInt64(dict["LastUpdatedDate"], 0)),
                 0);
