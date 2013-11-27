@@ -49,7 +49,7 @@ namespace RedisProviders.TestSite.Controllers
             ViewBag.Anon = ProfileManager.GetAllProfiles(ProfileAuthenticationOption.Anonymous);
             ViewBag.Auth = ProfileManager.GetAllProfiles(ProfileAuthenticationOption.Authenticated);
 
-            //ViewBag.Inactive = ProfileManager.GetAllInactiveProfiles(ProfileAuthenticationOption.All, DateTime.Now.Subtract(TimeSpan.FromMinutes(1)));
+            ViewBag.Inactive = ProfileManager.GetAllInactiveProfiles(ProfileAuthenticationOption.All, DateTime.Now.Subtract(TimeSpan.FromMinutes(1)));
             return View();
         }
 

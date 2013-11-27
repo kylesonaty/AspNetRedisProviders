@@ -200,14 +200,14 @@ namespace RedisProviders
                 {
                     var profileResult = result.Key;
                     var parts = profileResult.Split(':');
-                    var isAuthenticated = Convert.ToBoolean(parts[1]);
                     var profileName = parts[0];
+                    var isAuthenticated = Convert.ToBoolean(parts[1]);
                     var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(profileName, isAuthenticated));
                     var profileDict = connection.Wait(profileTask);
-                    profileDict.Add("Username", Encoding.Unicode.GetBytes(profileName));
-                    profileDict.Add("IsAuthenticated", BitConverter.GetBytes(isAuthenticated));
                     if (profileDict.Count > 0)
                     {
+                        profileDict.Add("Username", Encoding.Unicode.GetBytes(profileName));
+                        profileDict.Add("IsAuthenticated", BitConverter.GetBytes(isAuthenticated));
                         var user = CreateProfileInfoFromDictionary(profileDict);
                         collection.Add(user);
                     }
@@ -256,12 +256,16 @@ namespace RedisProviders
 
             Parallel.ForEach(users, result =>
             {
-                var profileResult = new string(Encoding.Unicode.GetChars(result.Key));
+                var profileResult = new string(Encoding.UTF8.GetChars(result.Key));
                 var parts = profileResult.Split(':');
-                var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(parts[0], Convert.ToBoolean(parts[1])));
+                var profileName = parts[0];
+                var isAuthenticated = Convert.ToBoolean(parts[1]);
+                var profileTask = connection.Hashes.GetAll(_redisDb, GetProfileKey(profileName, isAuthenticated));
                 var profileDict = connection.Wait(profileTask);
                 if (profileDict.Count > 0)
                 {
+                    profileDict.Add("Username", Encoding.Unicode.GetBytes(profileName));
+                    profileDict.Add("IsAuthenticated", BitConverter.GetBytes(isAuthenticated));
                     var user = CreateProfileInfoFromDictionary(profileDict);
                     collection.Add(user);
                 }
