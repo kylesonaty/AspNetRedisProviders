@@ -1,0 +1,14 @@
+﻿@using System.Web.Profile
+@{
+    ViewBag.Title = "Overview";
+}
+
+<h2>Overview</h2>
+
+<h3>All Profiles</h3>
+<ul>
+    @foreach (ProfileInfo profile in ViewBag.All)
+    {
+        <li>@profile.UserName</li>
+    }
+</ul>
