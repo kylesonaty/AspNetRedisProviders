@@ -20,8 +20,7 @@ To use it build the solution. Reference the binaries. Then add this to the confi
 ```xml 
 <sessionState mode="Custom" customProvider="RedisSessionProvider">
 	<providers>
-		<add name="RedisSessionProvider"
-			type="RedisProviders.RedisSessionProvider, RedisProviders" />
+		<add name="RedisSessionProvider" type="RedisProviders.RedisSessionStateStoreProvider, RedisProviders" />
 	</providers>
 </sessionState>
 ```
