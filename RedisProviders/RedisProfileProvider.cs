@@ -52,7 +52,7 @@ namespace RedisProviders
             _password = GetConfigValue(config["password"], null);
             _redisDb = Convert.ToInt32(GetConfigValue(config["db"], Defaults.Db));
             _applicationName = GetConfigValue(config["applicationName"], HostingEnvironment.ApplicationVirtualPath);
-            _writeExceptionsToEventLog = Convert.ToBoolean(GetConfigValue(config["writeExceptionsToEventLog"], "true"));
+            _writeExceptionsToEventLog = Convert.ToBoolean(GetConfigValue(config["writeExceptionsToEventLog"], "false"));
         }
 
         private static string GetConfigValue(string configValue, string defaultValue)
