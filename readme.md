@@ -94,6 +94,8 @@ To use it build the solution. Reference the binaries. Then add this to the confi
 </healthMonitoring>
 ```
 
+See "Option Config Values" for a list of additional options when configuring the provider. For more information on managing ASP.NET Health Monitor see http://msdn.microsoft.com/en-us/library/ms178701(v=vs.85).aspx
+
 ### Redis Output Cache Provider  `RedisProviders.RedisOutputCacheProvider`
 
 The `RedisOutputCacheProvider` class is an implementation of `System.Web.OutputCacheProvider` that stores the data in redis.
@@ -121,7 +123,7 @@ public ActionResult Index()
 }
 ```
 
-See "Option Config Values" for a list of additional options when configuring the provider. For more information on managing ASP.NET Health Monitor see http://msdn.microsoft.com/en-us/library/ms178701(v=vs.85).aspx
+See "Option Config Values" for a list of additional options when configuring the provider. For more information on managing ASP.NET Output Cache Provider see the Output Cache Provider section of http://msdn.microsoft.com/en-us/library/vstudio/ms178597(v=vs.100).aspx
 
 ### Optional Config Values 
 
