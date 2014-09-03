@@ -94,6 +94,33 @@ To use it build the solution. Reference the binaries. Then add this to the confi
 </healthMonitoring>
 ```
 
+### Redis Output Cache Provider  `RedisProviders.RedisOutputCacheProvider`
+
+The `RedisOutputCacheProvider` class is an implementation of `System.Web.OutputCacheProvider` that stores the data in redis.
+
+To use it build the solution. Reference the binaries and then add the following to the configuration file inside the `system.web` element.
+
+```xml
+<caching>
+      <outputCache defaultProvider="RedisOutputCacheProvider">
+        <providers>
+          <add name="RedisOutputCacheProvider" type="RedisProviders.RedisOutputCacheProvider"/>
+        </providers>
+      </outputCache>
+    </caching>
+```
+
+To use the provider add the output cache attribute to a MVC action.
+
+```csharp
+[OutputCache(Duration=120,VaryByParam="none")]
+public ActionResult Index()
+{
+    ViewBag.Now = DateTime.UtcNow;
+    return View();
+}
+```
+
 See "Option Config Values" for a list of additional options when configuring the provider. For more information on managing ASP.NET Health Monitor see http://msdn.microsoft.com/en-us/library/ms178701(v=vs.85).aspx
 
 ### Optional Config Values 
