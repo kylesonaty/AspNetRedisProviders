@@ -25,7 +25,19 @@ To use it build the solution. Reference the binaries. Then add this to the confi
 </sessionState>
 ```
 
+There is also a non locking version of the session state provider. You can use is by adding the following to the `system.web` element instead of the above example.
+
+```xml
+<sessionState mode="Custom" customProvider="NonLockingRedisSessionProvider">
+      <providers>
+        <add name="NonLockingRedisSessionProvider" type="RedisProviders.NonLockingRedisSessionStateStoreProvider, RedisProviders" />
+      </providers>
+    </sessionState>
+```
+
 See "Option Config Values" for a list of additional options when configuring the provider. For more information on ASP.NET Session State and how to configure it see http://msdn.microsoft.com/en-us/library/ms178581(v=vs.100).aspx
+
+
 
 ### Redis Role Provider `RedisProviders.RedisRoleProvider`
 
