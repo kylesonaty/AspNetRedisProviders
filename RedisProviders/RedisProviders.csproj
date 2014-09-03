@@ -52,6 +52,7 @@
     <Compile Include="RedisOutputCacheProvider.cs" />
     <Compile Include="RedisProfileProvider.cs" />
     <Compile Include="RedisRoleProvider.cs" />
+    <Compile Include="NonLockingRedisSessionStateStoreProvider.cs" />
     <Compile Include="RedisSessionStateStoreProvider.cs" />
     <Compile Include="RedisWebEventProvider.cs" />
   </ItemGroup>
