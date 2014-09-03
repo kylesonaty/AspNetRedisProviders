@@ -38,7 +38,7 @@ namespace RedisProviders
             _port = Convert.ToInt32(GetConfigValue(config["port"], Defaults.Port));
             _password = GetConfigValue(config["password"], null);
             _redisDb = Convert.ToInt32(GetConfigValue(config["db"], Defaults.Db));
-            _writeExceptionsToEventLog = Convert.ToBoolean(GetConfigValue(config["writeExceptionsToEventLog"], "true"));
+            _writeExceptionsToEventLog = Convert.ToBoolean(GetConfigValue(config["writeExceptionsToEventLog"], "false"));
         }
 
         private static string GetConfigValue(string configValue, string defaultValue)
