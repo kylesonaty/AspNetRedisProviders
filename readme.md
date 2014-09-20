@@ -11,6 +11,10 @@ The Redis Providers library is a collection of ASP.NET providers that uses redis
 To run an instance of Redis for this project, download and extract Redis for Windows here: https://github.com/MSOpenTech/redis. 
 Inside bin\release you'll find a 32-bit and 64-bit zip. Extract either one and run redis-server.exe.
 
+### Install ###
+
+Get the latest release via [nuget.](https://www.nuget.org/packages/AspNetRedisProviders/) Then follow the instructions for the provider you want to use below. 
+
 ### Redis Session State Store Provider `RedisProviders.RedisSessionStateStoreProvider`
 
 The `RedisSessionStateStoreProvider` provider is an implementation of `System.Web.SessionState.SessionStateStoreProviderBase` that stores the data in hashes in redis.
