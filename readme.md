@@ -7,6 +7,9 @@ The Redis Providers library is a collection of ASP.NET providers that uses redis
 * Role Provider
 * Membership Provider
 * Web Event Provider
+* Output Cache Provider
+* Non Locking Session State Provider
+* Profile Provider
 
 To run an instance of Redis for this project, download and extract Redis for Windows here: https://github.com/MSOpenTech/redis. 
 Inside bin\release you'll find a 32-bit and 64-bit zip. Extract either one and run redis-server.exe.
